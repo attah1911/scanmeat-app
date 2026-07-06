@@ -23,7 +23,7 @@ st.set_page_config(
 
 # ─── Konstanta ───────────────────────────────────────────────────────────────
 
-MODEL_PATH = Path("models/part4/best.pt")
+MODEL_PATH = Path("models/part5/best.pt")
 ERROR_THRESHOLD = 0.35
 WARNING_THRESHOLD = 0.50
 
@@ -613,7 +613,7 @@ def render_scan_tab(model):
                 # Jalankan prediksi model
                 # conf=0.50: abaikan prediksi di bawah 50% confidence
                 # iou=0.5: NMS hapus bounding box overlap > 50% (cegah double detection)
-                results = model.predict(source=img_bgr, verbose=False, conf=0.35, iou=0.7)
+                results = model.predict(source=img_bgr, verbose=False, conf=0.60, iou=0.7)
 
                 # Dapatkan hasil anotasi & filter confidence
                 img_rgb, detections, max_conf, status = draw_boxes_and_filter(
