@@ -598,15 +598,6 @@ def render_scan_tab(model):
         if "cam_facing" not in st.session_state:
             st.session_state.cam_facing = "environment"
 
-        # ── Tombol balik kamera ──
-        facing_label = "🔄 Kamera Depan" if st.session_state.cam_facing == "environment" else "🔄 Kamera Belakang"
-        if st.button(facing_label, key="btn_switch_cam"):
-            st.session_state.cam_facing = "user" if st.session_state.cam_facing == "environment" else "environment"
-            st.rerun()
-
-        facing_info = "Kamera Belakang" if st.session_state.cam_facing == "environment" else "Kamera Depan"
-        st.caption(f"Kamera aktif: **{facing_info}** — Klik tombol di atas untuk beralih.")
-
         # ── Inject JS untuk intercept getUserMedia sebelum st.camera_input init ──
         facing_val = st.session_state.cam_facing
         st.markdown(f"""
