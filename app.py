@@ -533,9 +533,9 @@ def render_beef_characteristics():
                 <li><strong>Aroma:</strong> Mulai tercium aroma asam atau bau segar khasnya sudah berkurang.</li>
                 <li><strong>Permukaan:</strong> Terasa agak lembap atau sedikit basah namun belum berlendir lengket.</li>
             </ul>
-            <div style="background: #fefce8; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #854d0e; display: flex; align-items: flex-start; gap: 6px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#854d0e" stroke-width="2" style="flex-shrink:0; margin-top: 2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                <span><strong>Konsumsi dengan hati-hati.</strong> Masih bisa dikonsumsi jika dimasak dengan sempurna (matang merata), namun tidak dianjurkan untuk dikonsumsi mentah atau setengah matang.</span>
+            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #991b1b; display: flex; align-items: flex-start; gap: 6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#991b1b" stroke-width="2" style="flex-shrink:0; margin-top: 2px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span><strong>Tidak layak dikonsumsi.</strong> Daging setengah segar menunjukkan penurunan kualitas yang signifikan. Jangan dikonsumsi untuk menghindari risiko kesehatan.</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -594,9 +594,46 @@ def render_scan_tab(model):
             help="Mendukung format JPG, JPEG, atau PNG.",
         )
     else:
+        # ── Inisialisasi session state untuk facingMode ──
+        if "cam_facing" not in st.session_state:
+            st.session_state.cam_facing = "environment"
+
+        # ── Tombol balik kamera ──
+        facing_label = "🔄 Kamera Depan" if st.session_state.cam_facing == "environment" else "🔄 Kamera Belakang"
+        if st.button(facing_label, key="btn_switch_cam"):
+            st.session_state.cam_facing = "user" if st.session_state.cam_facing == "environment" else "environment"
+            st.rerun()
+
+        facing_info = "Kamera Belakang" if st.session_state.cam_facing == "environment" else "Kamera Depan"
+        st.caption(f"Kamera aktif: **{facing_info}** — Klik tombol di atas untuk beralih.")
+
+        # ── Inject JS untuk intercept getUserMedia sebelum st.camera_input init ──
+        facing_val = st.session_state.cam_facing
+        st.markdown(f"""
+        <script>
+        (function(){{
+            var _facing = '{facing_val}';
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {{
+                var _orig = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+                navigator.mediaDevices.getUserMedia = function(constraints) {{
+                    if (constraints && constraints.video) {{
+                        if (typeof constraints.video === 'boolean') {{
+                            constraints.video = {{ facingMode: {{ ideal: _facing }} }};
+                        }} else {{
+                            constraints.video.facingMode = {{ ideal: _facing }};
+                        }}
+                    }}
+                    return _orig(constraints);
+                }};
+            }}
+        }})();
+        </script>
+        """, unsafe_allow_html=True)
+
+        # ── Camera input — key berubah saat facing berubah agar kamera di-reinit ──
         image_input = st.camera_input(
             "Ambil foto daging sapi",
-            key="camera_input",
+            key=f"camera_input_{facing_val}",
         )
 
     st.markdown("---")
@@ -605,7 +642,16 @@ def render_scan_tab(model):
     if image_input is not None:
         with st.spinner("Sedang memproses citra..."):
             try:
-                img_bgr = process_image(image_input)
+                # Proses gambar dari file upload atau camera input
+                if isinstance(image_input, str):
+                    # Seharusnya tidak terjadi lagi, tapi sebagai fallback
+                    import base64 as _b64
+                    _, encoded = image_input.split(",", 1)
+                    img_bytes = _b64.b64decode(encoded)
+                    img_array = np.frombuffer(img_bytes, dtype=np.uint8)
+                    img_bgr = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+                else:
+                    img_bgr = process_image(image_input)
 
                 if img_bgr is None:
                     st.error("Format berkas gambar tidak valid atau rusak.")
